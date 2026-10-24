@@ -19,7 +19,13 @@ export default function Notifications() {
   const toast = useToast();
 
   const fetch = () => {
-    notificationsService.list().then((r) => setNotifications(r.data.data)).catch(() => {}).finally(() => setLoading(false));
+    notificationsService.list()
+      .then((r) => {
+        const list = r.data?.data || r.data?.notifications || [];
+        setNotifications(Array.isArray(list) ? list : []);
+      })
+      .catch(() => setNotifications([]))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetch(); }, []);

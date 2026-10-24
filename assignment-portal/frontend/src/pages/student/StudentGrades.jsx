@@ -9,7 +9,13 @@ export default function StudentGrades() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    evaluationsService.getMine().then((r) => setGrades(r.data.data)).catch(() => {}).finally(() => setLoading(false));
+    evaluationsService.getMine()
+      .then((r) => {
+        const list = r.data?.data || r.data?.evaluations || [];
+        setGrades(Array.isArray(list) ? list : []);
+      })
+      .catch(() => setGrades([]))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingState message="Loading grades..." />;

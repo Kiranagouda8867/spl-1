@@ -25,10 +25,15 @@ export default function StudentDashboard() {
           evaluationsService.getMine(),
         ]);
 
-        const courses = coursesRes.status === 'fulfilled' ? coursesRes.value.data.data : [];
-        const assignments = assignmentsRes.status === 'fulfilled' ? assignmentsRes.value.data.data : [];
-        const submissions = submissionsRes.status === 'fulfilled' ? submissionsRes.value.data.data : [];
-        const grades = gradesRes.status === 'fulfilled' ? gradesRes.value.data.data : [];
+        const rawCourses = coursesRes.status === 'fulfilled' ? (coursesRes.value?.data?.data || coursesRes.value?.data?.courses) : [];
+        const rawAssignments = assignmentsRes.status === 'fulfilled' ? (assignmentsRes.value?.data?.data || assignmentsRes.value?.data?.assignments) : [];
+        const rawSubmissions = submissionsRes.status === 'fulfilled' ? (submissionsRes.value?.data?.data || submissionsRes.value?.data?.submissions) : [];
+        const rawGrades = gradesRes.status === 'fulfilled' ? (gradesRes.value?.data?.data || gradesRes.value?.data?.evaluations) : [];
+
+        const courses = Array.isArray(rawCourses) ? rawCourses : [];
+        const assignments = Array.isArray(rawAssignments) ? rawAssignments : [];
+        const submissions = Array.isArray(rawSubmissions) ? rawSubmissions : [];
+        const grades = Array.isArray(rawGrades) ? rawGrades : [];
 
         const submittedIds = new Set(submissions.map((s) => s.assignment?._id || s.assignment));
         const pending = assignments.filter(

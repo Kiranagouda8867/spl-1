@@ -37,7 +37,8 @@ export default function FacultySubmissions() {
   const fetchAssignments = async () => {
     try {
       const res = await assignmentsService.list();
-      const list = res.data.assignments || res.data || [];
+      const rawList = res.data?.data || res.data?.assignments || [];
+      const list = Array.isArray(rawList) ? rawList : [];
       setAssignments(list);
       if (list.length > 0) {
         setSelectedAssignmentId(list[0]._id);
@@ -55,7 +56,8 @@ export default function FacultySubmissions() {
       const params = {};
       if (statusFilter) params.status = statusFilter;
       const res = await submissionsService.getForAssignment(assignmentId, params);
-      setSubmissions(res.data.submissions || res.data || []);
+      const rawSubs = res.data?.data || res.data?.submissions || [];
+      setSubmissions(Array.isArray(rawSubs) ? rawSubs : []);
     } catch (err) {
       showToast('error', 'Failed to load submissions');
     } finally {

@@ -24,8 +24,10 @@ export default function FacultyAssignments() {
   async function fetchData() {
     setLoading(true);
     const [aRes, cRes] = await Promise.allSettled([assignmentsService.list(), coursesService.list()]);
-    setAssignments(aRes.status === 'fulfilled' ? aRes.value.data.data : []);
-    setCourses(cRes.status === 'fulfilled' ? cRes.value.data.data : []);
+    const rawAssignments = aRes.status === 'fulfilled' ? (aRes.value?.data?.data || aRes.value?.data?.assignments) : [];
+    const rawCourses = cRes.status === 'fulfilled' ? (cRes.value?.data?.data || cRes.value?.data?.courses) : [];
+    setAssignments(Array.isArray(rawAssignments) ? rawAssignments : []);
+    setCourses(Array.isArray(rawCourses) ? rawCourses : []);
     setLoading(false);
   }
 

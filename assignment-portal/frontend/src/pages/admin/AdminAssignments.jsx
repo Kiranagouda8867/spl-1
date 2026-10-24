@@ -19,7 +19,8 @@ export default function AdminAssignments() {
     setLoading(true);
     try {
       const res = await assignmentsService.list();
-      setAssignments(res.data.assignments || res.data || []);
+      const rawList = res.data?.data || res.data?.assignments || [];
+      setAssignments(Array.isArray(rawList) ? rawList : []);
     } catch (err) {
       showToast('error', 'Failed to load assignments');
     } finally {

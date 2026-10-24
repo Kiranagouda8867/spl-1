@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ProtectedRoute, PublicOnlyRoute } from './routes/ProtectedRoute';
 import { DashboardLayout } from './layouts/DashboardLayout';
@@ -29,6 +29,24 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminCourses from './pages/admin/AdminCourses';
 import AdminAssignments from './pages/admin/AdminAssignments';
+
+const VALID_ROLES = ['student', 'faculty', 'admin'];
+
+/**
+ * Intelligent root/fallback redirect:
+ * - If user is logged in with a valid role, route to their specific dashboard.
+ * - If user is unauthenticated or has invalid credentials, route to /login.
+ */
+function RootRedirect() {
+  const { isAuthenticated, user } = useAuth();
+  if (isAuthenticated && user?.role) {
+    const role = user.role.toLowerCase();
+    if (VALID_ROLES.includes(role)) {
+      return <Navigate to={`/${role}/dashboard`} replace />;
+    }
+  }
+  return <Navigate to="/login" replace />;
+}
 
 export default function App() {
   return (
@@ -76,9 +94,9 @@ export default function App() {
               </Route>
             </Route>
 
-            {/* Default fallback */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            {/* Intelligent Fallback Routes */}
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="*" element={<RootRedirect />} />
           </Routes>
         </AuthProvider>
       </ToastProvider>

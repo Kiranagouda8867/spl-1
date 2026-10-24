@@ -41,7 +41,8 @@ export default function FacultyGrades() {
     setEvalsLoading(true);
     try {
       const res = await evaluationsService.getForAssignment(assignmentId);
-      setEvaluations(res.data.evaluations || res.data || []);
+      const rawEvals = res.data?.data || res.data?.evaluations || [];
+      setEvaluations(Array.isArray(rawEvals) ? rawEvals : []);
     } catch (err) {
       showToast('error', 'Failed to load grading details');
     } finally {

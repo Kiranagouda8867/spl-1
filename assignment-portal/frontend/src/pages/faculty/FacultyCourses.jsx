@@ -14,7 +14,8 @@ export default function FacultyCourses() {
   const fetchCourses = async () => {
     try {
       const res = await coursesService.list();
-      setCourses(res.data.courses || res.data || []);
+      const list = res.data?.data || res.data?.courses || [];
+      setCourses(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error(err);
     } finally {

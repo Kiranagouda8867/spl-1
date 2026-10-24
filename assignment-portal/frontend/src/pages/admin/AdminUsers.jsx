@@ -34,7 +34,8 @@ export default function AdminUsers() {
       const params = {};
       if (roleFilter) params.role = roleFilter;
       const res = await usersService.listUsers(params);
-      setUsers(res.data.data || []);
+      const rawUsers = res.data?.data || res.data?.users || [];
+      setUsers(Array.isArray(rawUsers) ? rawUsers : []);
     } catch (err) {
       showToast('error', 'Failed to fetch users');
     } finally {

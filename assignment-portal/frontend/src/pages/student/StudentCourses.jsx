@@ -8,7 +8,13 @@ export default function StudentCourses() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    coursesService.list().then((r) => setCourses(r.data.data)).catch(() => {}).finally(() => setLoading(false));
+    coursesService.list()
+      .then((r) => {
+        const list = r.data?.data || r.data?.courses || [];
+        setCourses(Array.isArray(list) ? list : []);
+      })
+      .catch(() => setCourses([]))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingState message="Loading courses..." />;

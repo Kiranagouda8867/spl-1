@@ -8,7 +8,13 @@ export default function StudentSubmissions() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    submissionsService.getMine().then((r) => setSubmissions(r.data.data)).catch(() => {}).finally(() => setLoading(false));
+    submissionsService.getMine()
+      .then((r) => {
+        const list = r.data?.data || r.data?.submissions || [];
+        setSubmissions(Array.isArray(list) ? list : []);
+      })
+      .catch(() => setSubmissions([]))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingState message="Loading submissions..." />;

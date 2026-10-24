@@ -18,8 +18,10 @@ export default function FacultyDashboard() {
           coursesService.list(),
           assignmentsService.list(),
         ]);
-        const courses = cRes.status === 'fulfilled' ? cRes.value.data.data : [];
-        const assignments = aRes.status === 'fulfilled' ? aRes.value.data.data : [];
+        const rawCourses = cRes.status === 'fulfilled' ? (cRes.value?.data?.data || cRes.value?.data?.courses) : [];
+        const rawAssignments = aRes.status === 'fulfilled' ? (aRes.value?.data?.data || aRes.value?.data?.assignments) : [];
+        const courses = Array.isArray(rawCourses) ? rawCourses : [];
+        const assignments = Array.isArray(rawAssignments) ? rawAssignments : [];
 
         // Get submission counts per assignment
         let totalSubs = 0, gradedSubs = 0;
@@ -27,12 +29,13 @@ export default function FacultyDashboard() {
 
         for (const a of assignments.slice(0, 5)) {
           const sRes = await submissionsService.getForAssignment(a._id).catch(() => null);
-          if (sRes) {
-            const subs = sRes.data.data;
+          if (sRes?.data) {
+            const rawSubs = sRes.data.data || sRes.data.submissions;
+            const subs = Array.isArray(rawSubs) ? rawSubs : [];
             const graded = subs.filter((s) => s.status === 'graded').length;
             totalSubs += subs.length;
             gradedSubs += graded;
-            chartData.push({ name: a.title.slice(0, 12) + '...', total: subs.length, graded });
+            chartData.push({ name: (a.title || 'Assignment').slice(0, 12) + '...', total: subs.length, graded });
           }
         }
 

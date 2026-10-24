@@ -38,7 +38,8 @@ export default function AdminCourses() {
     setLoading(true);
     try {
       const res = await coursesService.list();
-      setCourses(res.data.data || []);
+      const rawCourses = res.data?.data || res.data?.courses || [];
+      setCourses(Array.isArray(rawCourses) ? rawCourses : []);
     } catch (err) {
       showToast('error', 'Failed to fetch courses');
     } finally {
