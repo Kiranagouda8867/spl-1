@@ -1,0 +1,264 @@
+pipeline {
+    agent any
+
+    environment {
+        // Build metadata and immutable tagging
+        BACKEND_IMAGE = 'assignment-portal-backend'
+        FRONTEND_IMAGE = 'assignment-portal-frontend'
+        IMAGE_TAG = "${env.BUILD_NUMBER ? env.BUILD_NUMBER : 'latest'}"
+        GIT_SHA = "${env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'manual'}"
+
+        // Optional Docker Hub publishing settings
+        // Set this ID in Jenkins -> Manage Jenkins -> Credentials if publishing is desired
+        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
+        DOCKER_REGISTRY = 'docker.io'
+
+        // CI mode flags
+        CI = 'true'
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+    }
+
+    stages {
+        // ==============================================================
+        // STAGE 1: Checkout Source Code
+        // ==============================================================
+        stage('Checkout Source Code') {
+            steps {
+                echo "==> [Stage 1] Checking out source repository from SCM..."
+                checkout scm
+                script {
+                    echo "Branch: ${env.GIT_BRANCH ?: 'local'}"
+                    echo "Commit: ${env.GIT_COMMIT ?: 'workspace'}"
+                    echo "Build Tag: ${IMAGE_TAG}-${GIT_SHA}"
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 2: Install Frontend Dependencies
+        // ==============================================================
+        stage('Install Frontend Dependencies') {
+            steps {
+                echo "==> [Stage 2] Installing frontend dependencies via npm..."
+                dir('frontend') {
+                    sh 'npm ci --prefer-offline || npm install'
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 3: Install Backend Dependencies
+        // ==============================================================
+        stage('Install Backend Dependencies') {
+            steps {
+                echo "==> [Stage 3] Installing backend dependencies via npm..."
+                dir('backend') {
+                    sh 'npm ci --prefer-offline || npm install'
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 4: Frontend Lint
+        // ==============================================================
+        stage('Frontend Lint') {
+            steps {
+                echo "==> [Stage 4] Running ESLint analysis on frontend..."
+                dir('frontend') {
+                    sh 'npm run lint'
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 5: Backend Lint
+        // ==============================================================
+        stage('Backend Lint') {
+            steps {
+                echo "==> [Stage 5] Running ESLint analysis on backend..."
+                dir('backend') {
+                    sh 'npm run lint'
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 6: Frontend Tests
+        // ==============================================================
+        stage('Frontend Tests') {
+            steps {
+                echo "==> [Stage 6] Executing frontend unit & integration test suites..."
+                dir('frontend') {
+                    sh 'npm test'
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 7: Backend Tests
+        // ==============================================================
+        stage('Backend Tests') {
+            steps {
+                echo "==> [Stage 7] Running Jest tests with in-memory MongoDB..."
+                dir('backend') {
+                    sh 'npm test'
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 8: Frontend Production Build
+        // ==============================================================
+        stage('Frontend Production Build') {
+            steps {
+                echo "==> [Stage 8] Building optimized production static assets via Vite..."
+                dir('frontend') {
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 9: Backend Verification
+        // ==============================================================
+        stage('Backend Verification') {
+            steps {
+                echo "==> [Stage 9] Verifying backend syntax, imports, and server entry..."
+                dir('backend') {
+                    sh 'node -e "require(\'./src/app\'); console.log(\'✓ Backend application module loaded successfully\');"'
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 10: Build Backend Docker Image
+        // ==============================================================
+        stage('Build Backend Docker Image') {
+            steps {
+                echo "==> [Stage 10] Building container image: ${BACKEND_IMAGE}..."
+                dir('backend') {
+                    sh "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 11: Build Frontend Docker Image
+        // ==============================================================
+        stage('Build Frontend Docker Image') {
+            steps {
+                echo "==> [Stage 11] Building container image: ${FRONTEND_IMAGE}..."
+                dir('frontend') {
+                    sh "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 12: Tag Docker Images
+        // ==============================================================
+        stage('Tag Docker Images') {
+            steps {
+                echo "==> [Stage 12] Creating immutable commit SHA tags..."
+                sh "docker tag ${BACKEND_IMAGE}:${IMAGE_TAG} ${BACKEND_IMAGE}:${GIT_SHA}"
+                sh "docker tag ${FRONTEND_IMAGE}:${IMAGE_TAG} ${FRONTEND_IMAGE}:${GIT_SHA}"
+            }
+        }
+
+        // ==============================================================
+        // STAGE 13: Optional Docker Hub Push
+        // ==============================================================
+        stage('Optional Docker Hub Push') {
+            when {
+                expression {
+                    // Only push if credentials exist and branch is main/master and not a PR
+                    return env.BRANCH_NAME in ['main', 'master'] && !env.CHANGE_ID
+                }
+            }
+            steps {
+                script {
+                    def credentialsFound = false
+                    try {
+                        withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            credentialsFound = true
+                            echo "==> [Stage 13] Authenticating with Docker Hub as ${DOCKER_USER}..."
+                            sh "echo \"$DOCKER_PASS\" | docker login -u \"$DOCKER_USER\" --password-stdin"
+
+                            echo "Tagging and pushing images to ${DOCKER_USER}/..."
+                            sh "docker tag ${BACKEND_IMAGE}:${IMAGE_TAG} ${DOCKER_USER}/${BACKEND_IMAGE}:${IMAGE_TAG}"
+                            sh "docker tag ${BACKEND_IMAGE}:latest ${DOCKER_USER}/${BACKEND_IMAGE}:latest"
+                            sh "docker push ${DOCKER_USER}/${BACKEND_IMAGE}:${IMAGE_TAG}"
+                            sh "docker push ${DOCKER_USER}/${BACKEND_IMAGE}:latest"
+
+                            sh "docker tag ${FRONTEND_IMAGE}:${IMAGE_TAG} ${DOCKER_USER}/${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                            sh "docker tag ${FRONTEND_IMAGE}:latest ${DOCKER_USER}/${FRONTEND_IMAGE}:latest"
+                            sh "docker push ${DOCKER_USER}/${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                            sh "docker push ${DOCKER_USER}/${FRONTEND_IMAGE}:latest"
+
+                            echo "✓ Images pushed successfully to Docker Hub!"
+                        }
+                    } catch (Exception e) {
+                        if (!credentialsFound) {
+                            echo "==> [Stage 13] Jenkins credential '${env.DOCKER_CREDENTIALS_ID}' not configured. Skipping Docker Hub publish cleanly."
+                        } else {
+                            throw e
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==============================================================
+        // STAGE 14: Optional Deployment Hook
+        // ==============================================================
+        stage('Optional Deployment Hook') {
+            when {
+                expression {
+                    // Only trigger if enabled via parameter or specific deployment branch
+                    return params.DEPLOY_TO_LOCAL == true
+                }
+            }
+            steps {
+                echo "==> [Stage 14] Executing deployment hook via Docker Compose..."
+                sh 'docker compose -f docker-compose.yml up -d'
+                sh 'docker compose ps'
+                echo "✓ Deployment executed successfully."
+            }
+        }
+
+        // ==============================================================
+        // STAGE 15: Post-Build Reporting and Cleanup
+        // ==============================================================
+        stage('Post-Build Reporting and Cleanup') {
+            steps {
+                echo "==> [Stage 15] Inspecting generated Docker images..."
+                sh "docker images | grep -E '${BACKEND_IMAGE}|${FRONTEND_IMAGE}' || true"
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "==> Pipeline execution completed. Cleaning up temporary artifacts..."
+            cleanWs deleteDirs: true, notFailBuild: true
+        }
+        success {
+            echo "=========================================================="
+            echo "✓ CI/CD PIPELINE SUCCEEDED"
+            echo "All automated tests, builds, and Docker images were generated."
+            echo "=========================================================="
+        }
+        failure {
+            echo "=========================================================="
+            echo "✗ CI/CD PIPELINE FAILED"
+            echo "Please inspect the Jenkins Console Output for failure details."
+            echo "=========================================================="
+        }
+    }
+}
