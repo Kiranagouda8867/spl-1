@@ -1,4 +1,11 @@
+
 'use strict';
+
+const dns = require('dns');
+
+// Configure DNS servers for MongoDB Atlas SRV lookup.
+// This addresses the local DNS resolver issue encountered earlier.
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const mongoose = require('mongoose');
 
@@ -37,9 +44,10 @@ async function connectDB() {
 
   try {
     await mongoose.connect(uri, options);
+
     isConnected = true;
 
-    // Log connection without exposing credentials
+    // Log connection without exposing credentials.
     const safeHost = getSafeHost(uri);
     console.log(`[Database] Connected to MongoDB: ${safeHost}`);
 
@@ -54,16 +62,28 @@ async function connectDB() {
     });
 
     mongoose.connection.on('error', (err) => {
-      console.error('[Database] MongoDB connection error:', err.message);
+      console.error(
+        '[Database] MongoDB connection error:',
+        err.message
+      );
     });
+
   } catch (err) {
-    console.error('[Database] Failed to connect to MongoDB:', err.message);
+    isConnected = false;
+
+    console.error(
+      '[Database] Failed to connect to MongoDB:',
+      err.message
+    );
+
     console.error(
       '[Database] Please verify your MONGODB_URI in backend/.env\n' +
-      '[Database] Ensure MongoDB is running and the URI format is correct.\n' +
+      '[Database] Ensure MongoDB Atlas is accessible and the URI format is correct.\n' +
+      '[Database] Check Atlas Network Access and database user permissions.\n' +
       '[Database] Do NOT share your connection string publicly.'
     );
-    // Don't exit — allow health endpoint and static functionality to remain available
+
+    // Don't exit — allow health endpoint and static functionality to remain available.
   }
 }
 
@@ -80,10 +100,14 @@ function isDBConnected() {
 function getSafeHost(uri) {
   try {
     const url = new URL(uri);
+
     return `${url.protocol}//${url.hostname}:${url.port || 27017}${url.pathname}`;
   } catch {
     return '[invalid URI format]';
   }
 }
 
-module.exports = { connectDB, isDBConnected };
+module.exports = {
+  connectDB,
+  isDBConnected,
+};
