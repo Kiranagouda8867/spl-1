@@ -107,11 +107,15 @@ export default function LoginPage() {
           <GradientButton
             type="submit"
             loading={loading}
-            className="w-full"
+            className="w-full duration-300 login-submit-button"
             size="lg"
             id="login-submit"
+            whileHover={{ scale: loading ? 1 : 1.03 }}
+            whileTap={{ scale: loading ? 1 : 0.98 }}
+            transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }}
           >
             Sign In
+            <span className="login-submit-shimmer" aria-hidden="true" />
           </GradientButton>
         </form>
 

@@ -120,7 +120,7 @@ export function IconButton({ icon: Icon, onClick, label, size = 18, variant = 'g
       onClick={onClick}
       aria-label={label}
       whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.9 }}
+      whileTap={{ scale: 0.98 }}
       className={`p-2 rounded-lg transition-all duration-200 ${variants[variant]} ${className}`}
     >
       <Icon size={size} />

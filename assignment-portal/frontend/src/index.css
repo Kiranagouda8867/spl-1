@@ -88,22 +88,44 @@ body {
     overflow: hidden;
   }
 
-  .btn-gradient::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, #0ea594 0%, #8b6cf8 100%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  .btn-gradient:hover::before {
-    opacity: 1;
-  }
-
   .btn-gradient > * {
     position: relative;
     z-index: 1;
+  }
+
+  .login-submit-button {
+    isolation: isolate;
+  }
+
+  .login-submit-shimmer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-160%) skewX(-20deg);
+  }
+
+  .login-submit-button:hover .login-submit-shimmer {
+    animation: login-submit-shimmer 700ms ease-out;
+  }
+
+  @keyframes login-submit-shimmer {
+    20% {
+      opacity: 0.6;
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(360%) skewX(-20deg);
+    }
+  }
+
+  .login-submit-button:hover {
+    box-shadow: 0 0 22px rgba(20, 184, 166, 0.2), 0 0 28px rgba(167, 139, 250, 0.2);
   }
 
   .gradient-text {
@@ -113,7 +135,7 @@ body {
     background-clip: text;
   }
 
-  .ambient-bg {
+    .ambient-bg {
     background: 
       radial-gradient(ellipse at 10% 20%, rgba(20, 184, 166, 0.06) 0%, transparent 50%),
       radial-gradient(ellipse at 90% 80%, rgba(167, 139, 250, 0.06) 0%, transparent 50%),
@@ -332,5 +354,128 @@ body {
 @media (max-width: 768px) {
   .glass-panel {
     border-radius: 14px;
+  }
+}
+
+button {
+  --button-bubble-background: rgba(255, 255, 255, 0.12);
+  --button-bubble-text: #fff;
+  isolation: isolate;
+  position: relative;
+  transition: all 200ms ease, color 650ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+button[class~="absolute"] {
+  position: absolute;
+}
+
+button[class~="fixed"] {
+  position: fixed;
+}
+
+button[class~="sticky"] {
+  position: sticky;
+}
+
+button::before,
+button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--button-bubble-background);
+  clip-path: circle(0 at 0% 50%);
+  pointer-events: none;
+  transition: clip-path 700ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+button::after {
+  clip-path: circle(0 at 100% 50%);
+  transition-delay: 80ms;
+}
+
+button:not(:disabled):is(:hover, :active)::before {
+  clip-path: circle(150% at 0% 50%);
+}
+
+button:not(:disabled):is(:hover, :active)::after {
+  clip-path: circle(150% at 100% 50%);
+  transition-delay: 0ms;
+}
+
+button:not(:disabled):hover {
+  color: var(--button-bubble-text);
+}
+
+button:not(:disabled):active {
+  filter: brightness(0.94);
+}
+
+button:not(:disabled):active:not(.btn-gradient) {
+  transform: scale(0.98);
+}
+
+button.btn-gradient {
+  --button-bubble-background: linear-gradient(135deg, #14B8A6 0%, #A78BFA 100%);
+  --button-bubble-text: #101828;
+  transition: all 300ms ease, color 650ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+button[class*="bg-teal-"],
+button[class*="hover:bg-teal-"] {
+  --button-bubble-background: #08776b;
+  --button-bubble-text: #fff;
+}
+
+button[class*="bg-violet-"],
+button[class*="hover:bg-violet-"] {
+  --button-bubble-background: #5b35f2;
+  --button-bubble-text: #fff;
+}
+
+button[class*="bg-red-"],
+button[class*="hover:bg-red-"] {
+  --button-bubble-background: #b91c1c;
+  --button-bubble-text: #fff;
+}
+
+button[class*="bg-emerald-"],
+button[class*="hover:bg-emerald-"] {
+  --button-bubble-background: #047857;
+  --button-bubble-text: #fff;
+}
+
+button[class*="bg-amber-"],
+button[class*="hover:bg-amber-"] {
+  --button-bubble-background: #92400e;
+  --button-bubble-text: #fff;
+}
+
+button[class*="bg-rose-"],
+button[class*="hover:bg-rose-"] {
+  --button-bubble-background: #be123c;
+  --button-bubble-text: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none !important;
+  }
+
+  button::before,
+  button::after {
+    transition: none;
+  }
+
+  .login-submit-shimmer {
+    animation: none !important;
+  }
+
+  button:not(:disabled):hover,
+  button:not(:disabled):active {
+    transform: none !important;
+    filter: none;
+    transition: none;
   }
 }
