@@ -2,29 +2,101 @@
 pipeline {
     agent any
 
+    environment {
+        FRONTEND_IMAGE = "kiranagouda0027/assignment-portal-frontend"
+        BACKEND_IMAGE  = "kiranagouda0027/assignment-portal-backend"
+    }
+
     stages {
+
         stage('Checkout') {
             steps {
-                echo 'Assignment Portal source code checked out'
+                echo 'Source code checked out from GitHub'
             }
         }
 
-        stage('Check Docker') {
+        stage('Frontend - Install Dependencies') {
             steps {
-                bat 'whoami'
-                bat 'where docker'
-                bat 'docker --version'
-                bat 'docker info'
+                dir('assignment-portal/frontend') {
+                    bat 'npm ci'
+                }
+            }
+        }
+
+        stage('Frontend - Test') {
+            steps {
+                dir('assignment-portal/frontend') {
+                    bat 'npm test'
+                }
+            }
+        }
+
+        stage('Frontend - Build') {
+            steps {
+                dir('assignment-portal/frontend') {
+                    bat 'npm run build'
+                }
+            }
+        }
+
+        stage('Backend - Install Dependencies') {
+            steps {
+                dir('assignment-portal/backend') {
+                    bat 'npm ci'
+                }
+            }
+        }
+
+        stage('Backend - Test') {
+            steps {
+                dir('assignment-portal/backend') {
+                    bat 'npm test'
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                dir('assignment-portal') {
+                    bat 'docker build -t %FRONTEND_IMAGE%:latest -t %FRONTEND_IMAGE%:build-%BUILD_NUMBER% -f frontend/Dockerfile frontend'
+
+                    bat 'docker build -t %BACKEND_IMAGE%:latest -t %BACKEND_IMAGE%:build-%BUILD_NUMBER% -f backend/Dockerfile backend'
+                }
+            }
+        }
+
+        stage('Push Images to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_TOKEN'
+                    )
+                ]) {
+                    bat '''
+                        echo %DOCKER_TOKEN% | docker login -u %DOCKER_USER% --password-stdin
+
+                        docker push %FRONTEND_IMAGE%:latest
+                        docker push %FRONTEND_IMAGE%:build-%BUILD_NUMBER%
+
+                        docker push %BACKEND_IMAGE%:latest
+                        docker push %BACKEND_IMAGE%:build-%BUILD_NUMBER%
+
+                        docker logout
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'Jenkins and Docker connection test successful!'
+            echo 'SUCCESS: Tests passed and both images pushed to Docker Hub!'
         }
+
         failure {
-            echo 'Pipeline failed. Check Console Output.'
+            echo 'FAILED: Pipeline stopped. Check the failed stage.'
         }
     }
 }
