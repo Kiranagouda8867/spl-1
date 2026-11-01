@@ -5,7 +5,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Assignment Portal CI/CD Pipeline Started'
+                echo 'Assignment Portal source code checked out'
             }
         }
 
@@ -16,6 +16,15 @@ pipeline {
                 bat 'docker --version'
                 bat 'docker info'
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'Jenkins and Docker connection test successful!'
+        }
+        failure {
+            echo 'Pipeline failed. Check Console Output.'
         }
     }
 }
