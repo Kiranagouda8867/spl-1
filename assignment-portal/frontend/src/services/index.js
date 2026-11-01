@@ -43,7 +43,13 @@ export const submissionsService = {
   getForAssignment: (assignmentId, params) =>
     api.get(`/submissions/assignment/${assignmentId}`, { params }),
   getById: (id) => api.get(`/submissions/${id}`),
-  downloadUrl: (id) => `/api/submissions/${id}/download`,
+  downloadFile: (id) => api.get(`/submissions/${id}/download`, { responseType: 'blob' }),
+  downloadUrl: (id) => {
+    const token = localStorage.getItem('token');
+    return token
+      ? `/api/submissions/${id}/download?token=${encodeURIComponent(token)}`
+      : `/api/submissions/${id}/download`;
+  },
 };
 
 export const evaluationsService = {

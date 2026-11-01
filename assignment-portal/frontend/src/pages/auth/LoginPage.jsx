@@ -31,7 +31,7 @@ export default function LoginPage() {
     const result = await login(form.email, form.password);
     if (result.success) {
       success('Welcome back!');
-      const role = JSON.parse(localStorage.getItem('user') || '{}').role;
+      const role = result.user?.role?.toLowerCase() || JSON.parse(localStorage.getItem('user') || '{}').role?.toLowerCase() || 'student';
       navigate(`/${role}/dashboard`);
     } else {
       showError(result.message);
@@ -123,9 +123,12 @@ export default function LoginPage() {
         </p>
 
         {/* Demo credentials hint */}
-        <div className="mt-6 p-4 rounded-xl bg-teal-500/5 border border-teal-500/15">
-          <p className="text-xs text-slate-400 text-center">
-            <span className="text-teal-400 font-medium">Note:</span> Register a new account or ask your administrator for credentials.
+        <div className="mt-6 p-3 rounded-xl bg-teal-500/5 border border-teal-500/15 text-center">
+          <p className="text-xs text-slate-400">
+            <span className="text-teal-400 font-semibold">Demo Accounts:</span>{' '}
+            <span className="text-slate-300">student@portal.local</span> (pw: Student123!) &bull;{' '}
+            <span className="text-slate-300">faculty@portal.local</span> (pw: Faculty123!) &bull;{' '}
+            <span className="text-slate-300">admin@portal.local</span> (pw: Admin123!)
           </p>
         </div>
       </motion.div>

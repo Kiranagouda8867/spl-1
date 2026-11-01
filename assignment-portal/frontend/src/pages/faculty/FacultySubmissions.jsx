@@ -131,8 +131,33 @@ export default function FacultySubmissions() {
     }
   };
 
-  const handleDownloadFile = (submissionId) => {
-    window.open(submissionsService.downloadUrl(submissionId), '_blank');
+  const handleDownloadFile = async (submissionId, originalName) => {
+    try {
+      const res = await submissionsService.downloadFile(submissionId);
+      let filename = originalName || `submission_${submissionId}`;
+      const disposition = res.headers?.['content-disposition'];
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        if (match && match[1]) {
+          filename = match[1];
+        }
+      }
+
+      const blob = new Blob([res.data], {
+        type: res.headers?.['content-type'] || 'application/octet-stream',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      showToast('success', 'File downloaded successfully');
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Failed to download submission');
+    }
   };
 
   const currentAssignment = assignments.find((a) => a._id === selectedAssignmentId);
@@ -257,7 +282,7 @@ export default function FacultySubmissions() {
                           </td>
                           <td className="py-3 px-4 text-right space-x-2">
                             <button
-                              onClick={() => handleDownloadFile(sub._id)}
+                              onClick={() => handleDownloadFile(sub._id, latestVersion.originalName)}
                               className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs inline-flex items-center gap-1.5 transition"
                               title="Download File"
                             >

@@ -210,6 +210,7 @@ async function downloadFile(req, res, next) {
     const { user } = req;
     const submission = await Submission.findById(req.params.id)
       .populate('assignment')
+      .populate('course')
       .populate({ path: 'assignment', populate: { path: 'course', select: 'faculty' } });
 
     if (!submission) return res.status(404).json({ success: false, message: 'Submission not found.' });
@@ -218,8 +219,12 @@ async function downloadFile(req, res, next) {
     if (user.role === 'student' && !submission.student.equals(user._id)) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
-    if (user.role === 'faculty' && !submission.assignment.course.faculty.some((f) => f.equals(user._id))) {
-      return res.status(403).json({ success: false, message: 'Not authorised for this course.' });
+    if (user.role === 'faculty') {
+      const facultyList = submission.course?.faculty || submission.assignment?.course?.faculty || [];
+      const isAllowed = facultyList.some((f) => (f.equals ? f.equals(user._id) : f.toString() === user._id.toString()));
+      if (!isAllowed) {
+        return res.status(403).json({ success: false, message: 'Not authorised for this course.' });
+      }
     }
 
     const currentFile = submission.versions[submission.versions.length - 1];
@@ -230,6 +235,7 @@ async function downloadFile(req, res, next) {
       return res.status(404).json({ success: false, message: 'File not found on server.' });
     }
 
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
     res.setHeader('Content-Disposition', `attachment; filename="${currentFile.originalName}"`);
     res.setHeader('Content-Type', currentFile.mimeType || 'application/octet-stream');
     res.sendFile(path.resolve(filePath));

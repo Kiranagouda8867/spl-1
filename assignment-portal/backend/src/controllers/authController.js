@@ -21,14 +21,39 @@ async function register(req, res, next) {
       });
     }
 
-    const { name, email, password, studentId, department } = req.body;
+    const { name, email, password, role = 'student', studentId, department, inviteCode } = req.body;
 
-    // Prevent privilege escalation — role always defaults to 'student'
+    const targetRole = (role || 'student').toLowerCase().trim();
+
+    // Enforce role security on backend: verify authorization keys for elevated roles
+    if (targetRole === 'faculty') {
+      const expectedKey = process.env.FACULTY_INVITE_CODE || 'FACULTY2024';
+      if (!inviteCode || inviteCode.trim() !== expectedKey) {
+        return res.status(403).json({
+          success: false,
+          message: 'Faculty registration requires a valid Faculty Authorization Key.',
+        });
+      }
+    } else if (targetRole === 'admin') {
+      const expectedKey = process.env.ADMIN_INVITE_CODE || 'ADMIN2024';
+      if (!inviteCode || inviteCode.trim() !== expectedKey) {
+        return res.status(403).json({
+          success: false,
+          message: 'Admin self-registration is restricted. A valid Admin Security Key is required.',
+        });
+      }
+    } else if (targetRole !== 'student') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role specified. Must be student, faculty, or admin.',
+      });
+    }
+
     const user = new User({
       name,
       email,
       password,
-      role: 'student',
+      role: targetRole,
       studentId,
       department,
     });

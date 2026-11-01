@@ -25,13 +25,17 @@ export default function FacultyGrades() {
   const fetchAssignments = async () => {
     try {
       const res = await assignmentsService.list();
-      const list = res.data.assignments || res.data || [];
+      const raw = res.data?.data ?? res.data?.assignments ?? res.data;
+      const list = Array.isArray(raw) ? raw : [];
       setAssignments(list);
       if (list.length > 0) {
         setSelectedAssignmentId(list[0]._id);
+      } else {
+        setSelectedAssignmentId('');
       }
     } catch (err) {
       showToast('error', 'Failed to load assignments');
+      setAssignments([]);
     } finally {
       setLoading(false);
     }
@@ -41,23 +45,28 @@ export default function FacultyGrades() {
     setEvalsLoading(true);
     try {
       const res = await evaluationsService.getForAssignment(assignmentId);
-      const rawEvals = res.data?.data || res.data?.evaluations || [];
-      setEvaluations(Array.isArray(rawEvals) ? rawEvals : []);
+      const raw = res.data?.data ?? res.data?.evaluations ?? res.data;
+      const list = Array.isArray(raw) ? raw : [];
+      setEvaluations(list);
     } catch (err) {
       showToast('error', 'Failed to load grading details');
+      setEvaluations([]);
     } finally {
       setEvalsLoading(false);
     }
   };
 
-  const currentAssignment = assignments.find((a) => a._id === selectedAssignmentId);
+  const safeAssignments = Array.isArray(assignments) ? assignments : [];
+  const safeEvaluations = Array.isArray(evaluations) ? evaluations : [];
 
-  const totalEvaluated = evaluations.length;
+  const currentAssignment = safeAssignments.find((a) => a._id === selectedAssignmentId) || null;
+
+  const totalEvaluated = safeEvaluations.length;
   const avgMarks = totalEvaluated > 0
-    ? (evaluations.reduce((acc, curr) => acc + (curr.marks || 0), 0) / totalEvaluated).toFixed(1)
+    ? (safeEvaluations.reduce((acc, curr) => acc + (Number(curr.marks) || 0), 0) / totalEvaluated).toFixed(1)
     : 0;
-  const maxScore = totalEvaluated > 0 ? Math.max(...evaluations.map((e) => e.marks || 0)) : 0;
-  const minScore = totalEvaluated > 0 ? Math.min(...evaluations.map((e) => e.marks || 0)) : 0;
+  const maxScore = totalEvaluated > 0 ? Math.max(...safeEvaluations.map((e) => Number(e.marks) || 0)) : 0;
+  const minScore = totalEvaluated > 0 ? Math.min(...safeEvaluations.map((e) => Number(e.marks) || 0)) : 0;
 
   const handleExportCSV = async () => {
     if (!selectedAssignmentId) return;
@@ -96,7 +105,7 @@ export default function FacultyGrades() {
 
       {loading ? (
         <LoadingState message="Loading grading dashboard..." />
-      ) : assignments.length === 0 ? (
+      ) : safeAssignments.length === 0 ? (
         <EmptyState
           icon={BarChart3}
           title="No assignments to analyze"
@@ -104,14 +113,15 @@ export default function FacultyGrades() {
         />
       ) : (
         <div className="space-y-6">
-          <GlassCard className="p-4 flex items-center gap-3">
-            <label className="text-slate-400 text-sm font-medium">Select Assignment:</label>
+          <GlassCard className="p-4 flex flex-wrap items-center gap-3">
+            <label htmlFor="assignment-select" className="text-slate-400 text-sm font-medium">Select Assignment:</label>
             <select
+              id="assignment-select"
               value={selectedAssignmentId}
               onChange={(e) => setSelectedAssignmentId(e.target.value)}
               className="input-glass text-sm py-2 px-3 sm:w-80"
             >
-              {assignments.map((a) => (
+              {safeAssignments.map((a) => (
                 <option key={a._id} value={a._id} className="bg-navy-900 text-white">
                   {a.title} ({a.course?.code || 'Course'})
                 </option>
@@ -154,7 +164,7 @@ export default function FacultyGrades() {
           {/* Evaluations Table */}
           {evalsLoading ? (
             <LoadingState message="Fetching evaluations..." />
-          ) : evaluations.length === 0 ? (
+          ) : safeEvaluations.length === 0 ? (
             <EmptyState
               icon={Award}
               title="No graded submissions"
@@ -174,17 +184,21 @@ export default function FacultyGrades() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {evaluations.map((ev) => {
+                    {safeEvaluations.map((ev) => {
                       const max = currentAssignment?.maxMarks || 100;
-                      const pct = Math.round(((ev.marks || 0) / max) * 100);
+                      const marksNum = Number(ev.marks) || 0;
+                      const pct = max > 0 ? Math.round((marksNum / max) * 100) : 0;
+                      const formattedDate = (ev.gradedAt || ev.createdAt)
+                        ? new Date(ev.gradedAt || ev.createdAt).toLocaleDateString()
+                        : '—';
                       return (
                         <tr key={ev._id} className="hover:bg-white/5 transition">
                           <td className="py-3 px-4">
                             <div className="font-medium text-white">{ev.student?.name || 'Student'}</div>
-                            <div className="text-xs text-slate-400">{ev.student?.email}</div>
+                            <div className="text-xs text-slate-400">{ev.student?.email || '—'}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="font-bold text-teal-400">{ev.marks}</span>
+                            <span className="font-bold text-teal-400">{marksNum}</span>
                             <span className="text-xs text-slate-500"> / {max}</span>
                           </td>
                           <td className="py-3 px-4">
@@ -202,7 +216,7 @@ export default function FacultyGrades() {
                             {ev.feedback || <span className="text-slate-600 italic">No written feedback</span>}
                           </td>
                           <td className="py-3 px-4 text-xs text-slate-400">
-                            {new Date(ev.gradedAt || ev.createdAt).toLocaleDateString()}
+                            {formattedDate}
                           </td>
                         </tr>
                       );

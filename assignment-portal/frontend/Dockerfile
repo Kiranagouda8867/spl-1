@@ -1,42 +1,45 @@
+
 # ==========================================
-# Stage 1: Build the React Application
+# Stage 1: Build React Application
 # ==========================================
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy dependency specifications
-COPY package*.json ./
+# Copy package files
+COPY package.json package-lock.json ./
 
-# Install dependencies (fallback to npm install if no lockfile yet)
-RUN npm ci || npm install
+# Install dependencies
+RUN npm ci
 
-# Copy source code and build configuration
+# Copy frontend source
 COPY . .
 
-# Build production bundle
+# Build production application
 RUN npm run build
 
-# ==========================================
-# Stage 2: Serve with Production Nginx
-# ==========================================
-FROM nginx:alpine
 
-# Remove default nginx static assets
-RUN rm -rf /usr/share/nginx/html/*
+# ==========================================
+# Stage 2: Production Nginx Server
+# ==========================================
+FROM nginx:alpine AS runner
 
-# Copy build artifacts from builder stage
+# Remove default Nginx configuration and files
+RUN rm -f /etc/nginx/conf.d/default.conf && \
+    rm -rf /usr/share/nginx/html/*
+
+# Copy production build
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom Nginx configuration with SPA routing and API reverse proxy
+# Copy custom Nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose HTTP port
 EXPOSE 80
 
-# Health check to ensure Nginx is responding
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:80/ || exit 1
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://127.0.0.1:80/ || exit 1
 
-# Start Nginx in foreground
+# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]

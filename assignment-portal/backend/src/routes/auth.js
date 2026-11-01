@@ -16,7 +16,13 @@ const registerValidation = [
     .withMessage('Password must contain at least one number'),
   body('studentId').optional().trim(),
   body('department').optional().trim(),
-  // Role is NOT accepted from request body — always defaults to 'student'
+  body('role')
+    .optional()
+    .trim()
+    .toLowerCase()
+    .isIn(['student', 'faculty', 'admin'])
+    .withMessage('Role must be student, faculty, or admin'),
+  body('inviteCode').optional().trim(),
 ];
 
 const loginValidation = [

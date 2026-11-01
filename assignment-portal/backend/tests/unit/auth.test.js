@@ -34,27 +34,78 @@ describe('POST /api/auth/register', () => {
     expect(res.body.data.user.password).toBeUndefined();
   });
 
-  it('should NOT allow registering with admin role', async () => {
+  it('should register a new student successfully when role is student', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Test Student',
+      email: 'student@test.com',
+      password: 'Password123',
+      role: 'student',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.token).toBeDefined();
+    expect(res.body.data.user.role).toBe('student');
+    expect(res.body.data.user.password).toBeUndefined();
+  });
+
+  it('should register a new student when role is omitted', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Default Student',
+      email: 'default-student@test.com',
+      password: 'Password123',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.data.user.role).toBe('student');
+  });
+
+  it('should reject unauthorized admin registration without invite key', async () => {
     const res = await request(app).post('/api/auth/register').send({
       name: 'Sneaky Admin',
       email: 'admin@test.com',
       password: 'Password123',
       role: 'admin',
     });
-    // Should succeed but role must be 'student'
-    expect(res.status).toBe(201);
-    expect(res.body.data.user.role).toBe('student');
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/Admin/i);
   });
 
-  it('should NOT allow registering with faculty role', async () => {
+  it('should reject unauthorized faculty registration without invite key', async () => {
     const res = await request(app).post('/api/auth/register').send({
       name: 'Sneaky Faculty',
       email: 'faculty@test.com',
       password: 'Password123',
       role: 'faculty',
     });
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/Faculty/i);
+  });
+
+  it('should allow authorized faculty registration with valid invite code', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Dr. Faculty',
+      email: 'valid-faculty@test.com',
+      password: 'Password123',
+      role: 'faculty',
+      inviteCode: 'FACULTY2024',
+    });
     expect(res.status).toBe(201);
-    expect(res.body.data.user.role).toBe('student');
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.user.role).toBe('faculty');
+  });
+
+  it('should allow authorized admin registration with valid invite code', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Master Admin',
+      email: 'valid-admin@test.com',
+      password: 'Password123',
+      role: 'admin',
+      inviteCode: 'ADMIN2024',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.user.role).toBe('admin');
   });
 
   it('should reject registration with invalid email', async () => {

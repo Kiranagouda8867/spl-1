@@ -1,83 +1,22 @@
-version: '3.8'
-
 services:
-  # ==========================================
-  # Backend API Service
-  # ==========================================
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: assignment-portal-backend:latest
-    container_name: assignment-portal-backend
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    environment:
-      - NODE_ENV=production
-      - PORT=5000
-      # MONGODB_URI is read from host .env file or injected at runtime
-      # Leave empty until user supplies real MongoDB URI
-      - MONGODB_URI=${MONGODB_URI:-}
-      - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_in_production_key_12345}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
-      - CLIENT_URL=${CLIENT_URL:-http://localhost:3000}
-      - UPLOAD_DIR=/app/uploads
-      - MAX_FILE_SIZE_MB=10
-    volumes:
-      - backend-uploads:/app/uploads
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/api/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
 
-  # ==========================================
-  # Frontend SPA Service (Nginx)
-  # ==========================================
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: assignment-portal-frontend:latest
-    container_name: assignment-portal-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:80"
-    depends_on:
-      backend:
-        condition: service_started
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:80/ || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  # ==========================================
-  # Optional Containerised MongoDB Service
-  # Only runs when specified with: --profile local-db
-  # e.g.: docker compose --profile local-db up -d
-  # ==========================================
   mongodb:
     image: mongo:7.0
     container_name: assignment-portal-mongodb
     restart: unless-stopped
-    profiles:
-      - local-db
+
     ports:
-      - "27017:27017"
+      - "27018:27017"
+
     environment:
-      - MONGO_INITDB_DATABASE=assignment_portal
+      MONGO_INITDB_DATABASE: assignment_portal
+
     volumes:
       - mongo-data:/data/db
+
     networks:
       - app-network
+
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -85,11 +24,74 @@ services:
       retries: 5
       start_period: 10s
 
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    image: assignment-portal-backend:latest
+    container_name: assignment-portal-backend
+    restart: unless-stopped
+
+    ports:
+      - "5000:5000"
+
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGODB_URI: mongodb://mongodb:27017/assignment_portal
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in root .env}
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      UPLOAD_DIR: /app/uploads
+      MAX_FILE_SIZE_MB: 10
+
+    volumes:
+      - backend-uploads:/app/uploads
+
+    networks:
+      - app-network
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    image: assignment-portal-frontend:latest
+    container_name: assignment-portal-frontend
+    restart: unless-stopped
+
+    ports:
+      - "5173:80"
+
+    networks:
+      - app-network
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+
 volumes:
-  backend-uploads:
-    name: assignment-portal-uploads
   mongo-data:
     name: assignment-portal-mongo-data
+
+  backend-uploads:
+    name: assignment-portal-uploads
+
 
 networks:
   app-network:
