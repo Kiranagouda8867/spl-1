@@ -263,7 +263,7 @@ export default function AdminCourses() {
               Cancel
             </button>
             <GradientButton type="submit" loading={creating}>
-              Create Course
+              Create course
             </GradientButton>
           </div>
         </form>
